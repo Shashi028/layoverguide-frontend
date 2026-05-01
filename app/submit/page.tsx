@@ -13,8 +13,9 @@ export default function SubmitPage() {
   const [error, setError] = useState('')
 
   const [airportId, setAirportId] = useState('')
-  const [layoverDuration, setLayoverDuration] = useState('')
   const [timeToExit, setTimeToExit] = useState('')
+  const [layoverHours, setLayoverHours] = useState('')
+  const [layoverMins, setLayoverMins] = useState('')
   const [arrivalTerminal, setArrivalTerminal] = useState('')
   const [departureTerminal, setDepartureTerminal] = useState('')
   const [userRating, setUserRating] = useState('')
@@ -40,17 +41,20 @@ export default function SubmitPage() {
     e.preventDefault()
     setError('')
 
+    // Calculate total minutes behind the scenes
+    const totalLayoverMins = (Number(layoverHours) || 0) * 60 + (Number(layoverMins) || 0)
+
     // Client-side validation
     if (!airportId) {
       setError('Please select an airport.')
       return
     }
-    if (!layoverDuration || Number(layoverDuration) <= 0) {
+    if (totalLayoverMins <= 0) {
       setError('Layover duration must be greater than 0.')
       return
     }
-    if (timeToExit && Number(timeToExit) >= Number(layoverDuration)) {
-      setError('Time to exit cannot exceed layover duration.')
+    if (timeToExit && Number(timeToExit) >= totalLayoverMins) {
+      setError('Time to exit cannot exceed total layover duration.')
       return
     }
     if (userRating && (Number(userRating) < 1 || Number(userRating) > 10)) {
@@ -62,9 +66,10 @@ export default function SubmitPage() {
 
     const token = session?.access_token
 
+    // Build the payload exactly how FastAPI expects it
     const body: any = {
       airport_id: airportId,
-      layover_duration_mins: Number(layoverDuration),
+      layover_duration_mins: totalLayoverMins,
     }
     if (timeToExit) body.time_to_exit_mins = Number(timeToExit)
     if (arrivalTerminal) body.arrival_terminal = arrivalTerminal
@@ -105,7 +110,15 @@ export default function SubmitPage() {
             Back to search
           </button>
           <button
-            onClick={() => { setSuccess(false); setAirportId(''); setLayoverDuration(''); setTimeToExit(''); setNotes(''); setUserRating(''); }}
+            onClick={() => { 
+              setSuccess(false); 
+              setAirportId(''); 
+              setLayoverHours(''); 
+              setLayoverMins(''); 
+              setTimeToExit(''); 
+              setNotes(''); 
+              setUserRating(''); 
+            }}
             className="border border-gray-300 text-gray-600 px-6 py-2 rounded-full hover:bg-gray-50"
           >
             Submit another
@@ -164,28 +177,47 @@ export default function SubmitPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Total layover duration (minutes) <span className="text-red-500">*</span>
+              Time to exit airport (minutes)
             </label>
             <input
               type="number"
-              value={layoverDuration}
-              onChange={e => setLayoverDuration(e.target.value)}
-              placeholder="e.g. 300 for 5 hours"
+              min="0"
+              value={timeToExit}
+              onChange={e => setTimeToExit(e.target.value)}
+              placeholder="e.g. 30"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Time to exit airport (minutes)
+              Total layover duration <span className="text-red-500">*</span>
             </label>
-            <input
-              type="number"
-              value={timeToExit}
-              onChange={e => setTimeToExit(e.target.value)}
-              placeholder="e.g. 30"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <input
+                  type="number"
+                  min="0"
+                  value={layoverHours}
+                  onChange={e => setLayoverHours(e.target.value)}
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="absolute right-3 top-2 text-gray-500 text-sm pointer-events-none">hrs</span>
+              </div>
+              <div className="flex-1 relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={layoverMins}
+                  onChange={e => setLayoverMins(e.target.value)}
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-12 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="absolute right-3 top-2 text-gray-500 text-sm pointer-events-none">mins</span>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
