@@ -56,7 +56,9 @@ export default function Home() {
               Real experiences from real travellers
             </p>
             <p className="text-blue-100 text-sm mt-1">
-              Every itinerary is submitted by someone who actually did it — not AI-generated, not sponsored.
+              Every itinerary is submitted by someone who actually did it.
+              <br />
+              Not AI-generated, not sponsored.
             </p>
           </div>
 
