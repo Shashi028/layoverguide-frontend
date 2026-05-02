@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import Navbar from '../components/Navbar'
 
 export default function SubmitPage() {
   const router = useRouter()
@@ -130,20 +131,7 @@ export default function SubmitPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-        <h1
-          onClick={() => router.push('/')}
-          className="text-xl font-bold text-blue-600 cursor-pointer"
-        >
-          LayoverGuide
-        </h1>
-        <button
-          onClick={() => router.push('/')}
-          className="text-sm text-gray-500 hover:text-blue-600"
-        >
-          ← Back to search
-        </button>
-      </nav>
+      <Navbar />
 
       <div className="max-w-2xl mx-auto px-6 py-10">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Share your layover itinerary</h2>
