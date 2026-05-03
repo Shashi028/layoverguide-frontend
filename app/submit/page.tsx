@@ -21,6 +21,7 @@ export default function SubmitPage() {
   const [departureTerminal, setDepartureTerminal] = useState('')
   const [userRating, setUserRating] = useState('')
   const [notes, setNotes] = useState('')
+  const [exitTransportMode, setExitTransportMode] = useState('')
 
   useEffect(() => {
     // Check if user is logged in
@@ -77,6 +78,7 @@ export default function SubmitPage() {
     if (departureTerminal) body.departure_terminal = departureTerminal
     if (userRating) body.user_rating = Number(userRating)
     if (notes) body.notes = notes
+    if (exitTransportMode) body.exit_transport_mode = exitTransportMode
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/itineraries`, {
       method: 'POST',
@@ -175,6 +177,24 @@ export default function SubmitPage() {
               placeholder="e.g. 30"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              How did you exit the airport?
+            </label>
+            <select
+              value={exitTransportMode}
+              onChange={e => setExitTransportMode(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select transport mode...</option>
+              <option value="walk">Walk</option>
+              <option value="taxi">Taxi</option>
+              <option value="metro">Metro / MRT</option>
+              <option value="bus">Bus</option>
+              <option value="bike_taxi">Bike taxi</option>
+              <option value="other">Other</option>
+            </select>
           </div>
 
           <div>
