@@ -9,6 +9,8 @@ export default function SubmitPage() {
   const router = useRouter()
   const [session, setSession] = useState<any>(null)
   const [airports, setAirports] = useState<any[]>([])
+  const [tags, setTags] = useState<any[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -24,7 +26,6 @@ export default function SubmitPage() {
   const [exitTransportMode, setExitTransportMode] = useState('')
 
   useEffect(() => {
-    // Check if user is logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         router.push('/login')
@@ -33,45 +34,41 @@ export default function SubmitPage() {
       }
     })
 
-    // Load airports for dropdown
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/airports`)
       .then(res => res.json())
       .then(data => setAirports(data))
+
+    supabase.from('tags').select('*').order('name').then(({ data }) => {
+      if (data) setTags(data)
+    })
   }, [])
+
+  function toggleTag(tagId: number) {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    )
+  }
 
   async function handleSubmit(e: any) {
     e.preventDefault()
     setError('')
 
-    // Calculate total minutes behind the scenes
     const totalLayoverMins = (Number(layoverHours) || 0) * 60 + (Number(layoverMins) || 0)
 
-    // Client-side validation
-    if (!airportId) {
-      setError('Please select an airport.')
-      return
-    }
-    if (totalLayoverMins <= 0) {
-      setError('Layover duration must be greater than 0.')
-      return
-    }
-    if (timeToExit && Number(timeToExit) >= totalLayoverMins) {
-      setError('Time to exit cannot exceed total layover duration.')
-      return
-    }
-    if (userRating && (Number(userRating) < 1 || Number(userRating) > 10)) {
-      setError('Rating must be between 1 and 10.')
-      return
-    }
+    if (!airportId) { setError('Please select an airport.'); return }
+    if (totalLayoverMins <= 0) { setError('Layover duration must be greater than 0.'); return }
+    if (timeToExit && Number(timeToExit) >= totalLayoverMins) { setError('Time to exit cannot exceed total layover duration.'); return }
+    if (userRating && (Number(userRating) < 1 || Number(userRating) > 10)) { setError('Rating must be between 1 and 10.'); return }
 
     setLoading(true)
-
     const token = session?.access_token
 
-    // Build the payload exactly how FastAPI expects it
     const body: any = {
       airport_id: airportId,
       layover_duration_mins: totalLayoverMins,
+      tag_ids: selectedTagIds
     }
     if (timeToExit) body.time_to_exit_mins = Number(timeToExit)
     if (arrivalTerminal) body.arrival_terminal = arrivalTerminal
@@ -106,21 +103,20 @@ export default function SubmitPage() {
         <h2 className="text-xl font-bold text-gray-800 mb-2">Itinerary submitted!</h2>
         <p className="text-gray-500 mb-6">Thanks for helping fellow travellers.</p>
         <div className="flex gap-3 justify-center">
-          <button
-            onClick={() => router.push('/')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700"
-          >
+          <button onClick={() => router.push('/')} className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700">
             Back to search
           </button>
           <button
-            onClick={() => { 
-              setSuccess(false); 
-              setAirportId(''); 
-              setLayoverHours(''); 
-              setLayoverMins(''); 
-              setTimeToExit(''); 
-              setNotes(''); 
-              setUserRating(''); 
+            onClick={() => {
+              setSuccess(false)
+              setAirportId('')
+              setLayoverHours('')
+              setLayoverMins('')
+              setTimeToExit('')
+              setNotes('')
+              setUserRating('')
+              setSelectedTagIds([])
+              setExitTransportMode('')
             }}
             className="border border-gray-300 text-gray-600 px-6 py-2 rounded-full hover:bg-gray-50"
           >
@@ -134,7 +130,6 @@ export default function SubmitPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <Navbar />
-
       <div className="max-w-2xl mx-auto px-6 py-10">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Share your layover itinerary</h2>
         <p className="text-gray-500 mb-8">Help other travellers make the most of their time.</p>
@@ -170,14 +165,13 @@ export default function SubmitPage() {
               Time to exit airport (minutes)
             </label>
             <input
-              type="number"
-              min="0"
-              value={timeToExit}
+              type="number" min="0" value={timeToExit}
               onChange={e => setTimeToExit(e.target.value)}
               placeholder="e.g. 30"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               How did you exit the airport?
@@ -204,9 +198,7 @@ export default function SubmitPage() {
             <div className="flex gap-4">
               <div className="flex-1 relative">
                 <input
-                  type="number"
-                  min="0"
-                  value={layoverHours}
+                  type="number" min="0" value={layoverHours}
                   onChange={e => setLayoverHours(e.target.value)}
                   placeholder="0"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -215,10 +207,7 @@ export default function SubmitPage() {
               </div>
               <div className="flex-1 relative">
                 <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={layoverMins}
+                  type="number" min="0" max="59" value={layoverMins}
                   onChange={e => setLayoverMins(e.target.value)}
                   placeholder="0"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-12 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -230,24 +219,18 @@ export default function SubmitPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Arrival terminal
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Arrival terminal</label>
               <input
-                type="text"
-                value={arrivalTerminal}
+                type="text" value={arrivalTerminal}
                 onChange={e => setArrivalTerminal(e.target.value)}
                 placeholder="e.g. 1"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Departure terminal
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Departure terminal</label>
               <input
-                type="text"
-                value={departureTerminal}
+                type="text" value={departureTerminal}
                 onChange={e => setDepartureTerminal(e.target.value)}
                 placeholder="e.g. 2"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -256,14 +239,9 @@ export default function SubmitPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rating (1–10)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Rating (1–10)</label>
             <input
-              type="number"
-              min={1}
-              max={10}
-              value={userRating}
+              type="number" min={1} max={10} value={userRating}
               onChange={e => setUserRating(e.target.value)}
               placeholder="How would you rate this layover experience?"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -271,9 +249,7 @@ export default function SubmitPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes & tips
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes & tips</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -281,6 +257,26 @@ export default function SubmitPage() {
               placeholder="What did you do? Any tips for other travellers?"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag: any) => (
+                <button
+                  key={tag.tag_id}
+                  type="button"
+                  onClick={() => toggleTag(tag.tag_id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    selectedTagIds.includes(tag.tag_id)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  }`}
+                >
+                  {tag.name.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
