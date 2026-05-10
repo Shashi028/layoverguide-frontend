@@ -109,10 +109,21 @@ export default function ItineraryDetail() {
               <p className="text-blue-200 text-sm uppercase tracking-wide mb-1">
                 Layover duration
               </p>
-              <p className="text-4xl font-bold">
-                {Math.floor(itinerary.layover_duration_mins / 60)}h {itinerary.layover_duration_mins % 60}m
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-4xl font-bold">
+                  {Math.floor(itinerary.layover_duration_mins / 60)}h {itinerary.layover_duration_mins % 60}m
+                </p>
+                
+                {/* NEW: Price Tier Indicator */}
+                {itinerary.price_tier && (
+                  <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg text-lg tracking-widest font-bold">
+                    <span className="text-green-400">{'$'.repeat(itinerary.price_tier)}</span>
+                    <span className="text-white/30">{'$'.repeat(4 - itinerary.price_tier)}</span>
+                  </div>
+                )}
+              </div>
             </div>
+
             {itinerary.user_rating && (
               <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-center">
                 <div className="text-2xl font-bold">{itinerary.user_rating}/10</div>
@@ -127,6 +138,19 @@ export default function ItineraryDetail() {
 
         {/* Key info grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* NEW: Display Time of Day */}
+          {itinerary.time_of_day && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+              <p className="text-2xl mb-1">
+                {itinerary.time_of_day === 'Morning' && '🌅'}
+                {itinerary.time_of_day === 'Afternoon' && '☀️'}
+                {itinerary.time_of_day === 'Evening' && '🌆'}
+                {itinerary.time_of_day === 'Overnight' && '🌙'}
+              </p>
+              <p className="text-lg font-bold text-gray-800">{itinerary.time_of_day}</p>
+              <p className="text-xs text-gray-400">layover vibe</p>
+            </div>
+          )}
           {itinerary.time_to_exit_mins && (
             <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
               <p className="text-2xl mb-1">🚶</p>
@@ -164,6 +188,18 @@ export default function ItineraryDetail() {
               📝 Traveller notes
             </h3>
             <p className="text-gray-600 leading-relaxed">{itinerary.notes}</p>
+          </div>
+        )}
+        {itinerary.itinerary_tags && itinerary.itinerary_tags.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-800 mb-3">🏷️ Tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {itinerary.itinerary_tags.map((t: any) => (
+                <span key={t.tag_id} className="text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full font-medium">
+                  {t.tags.name.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

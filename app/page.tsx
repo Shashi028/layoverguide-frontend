@@ -3,33 +3,55 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from './components/Navbar'
+import { supabase } from '../lib/supabase'
+import { Combobox } from '@headlessui/react'
 
 export default function Home() {
   const router = useRouter()
-  const [airports, setAirports] = useState([])
+  const [airports, setAirports] = useState<any[]>([])
   const [selectedAirport, setSelectedAirport] = useState('')
   const [minHours, setMinHours] = useState(1)
   const [maxHours, setMaxHours] = useState(24)
   const [itineraries, setItineraries] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [tags, setTags] = useState<any[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
+  const [airportQuery, setAirportQuery] = useState('')
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/airports`)
       .then(res => res.json())
       .then(data => setAirports(data))
+    supabase.from('tags').select('*').order('name').then(({ data }) => {
+      if (data) setTags(data)
+    })
   }, [])
+  
+  const filteredAirports = airportQuery === ''
+    ? airports
+    : airports.filter((airport: any) =>
+      `${airport.airport_name} ${airport.iata_code} ${airport.city}`
+        .toLowerCase()
+        .includes(airportQuery.toLowerCase())
+    )
+  
 
   async function handleSearch() {
     if (!selectedAirport) return
     setLoading(true)
     setSearched(true)
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/itineraries?airport_id=${selectedAirport}&min_hrs=${minHours}&max_hrs=${maxHours}`
-    )
+    const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/itineraries`)
+    url.searchParams.set('airport_id', selectedAirport)
+    url.searchParams.set('min_hrs', String(minHours))
+    url.searchParams.set('max_hrs', String(maxHours))
+    selectedTagIds.forEach(id => url.searchParams.append('tag_ids', String(id)))
+
+    const res = await fetch(url.toString())
     const data = await res.json()
     setItineraries(data)
     setLoading(false)
+
   }
 
   return (
@@ -64,22 +86,50 @@ export default function Home() {
 
           {/* Search box */}
           <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 text-left shadow-2xl">
-            <div className="mb-4">
+            <div className="mb-4 relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Airport
               </label>
-              <select
-                value={selectedAirport}
-                onChange={e => setSelectedAirport(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select an airport...</option>
-                {airports.map((airport: any) => (
-                  <option key={airport.airport_id} value={airport.airport_id}>
-                    {airport.airport_name} ({airport.iata_code}) — {airport.city}, {airport.country}
-                  </option>
-                ))}
-              </select>
+              <Combobox<string | null> value={selectedAirport} onChange={(val: string | null) => setSelectedAirport(val || '')}>
+                <div className="relative">
+                  <Combobox.Input
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    displayValue={(airportId: string | null) => {
+                      if (!airportId) return '';
+                      const airport = airports.find((a: any) => a.airport_id === airportId)
+                      return airport ? `${airport.airport_name} (${airport.iata_code}) — ${airport.city}` : ''
+                    }}
+                    onChange={e => setAirportQuery(e.target.value)}
+                    onClick={() => setAirportQuery('')} // <-- THE MAGIC RESET
+                    placeholder="Search airports..."
+                  />
+                  
+                  {/* The Visual Dropdown Arrow */}
+                  <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                      <path d="M7 7l3-3 3 3m0 6l-3 3-3-3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </Combobox.Button>
+
+                  <Combobox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    {filteredAirports.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500">No airports found</div>
+                    ) : (
+                      filteredAirports.map((airport: any) => (
+                        <Combobox.Option
+                          key={airport.airport_id}
+                          value={airport.airport_id}
+                          className={({ active }) =>
+                            `px-4 py-2.5 cursor-pointer text-sm ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-800'}`
+                          }
+                        >
+                          {airport.airport_name} ({airport.iata_code}) — {airport.city}, {airport.country}
+                        </Combobox.Option>
+                      ))
+                    )}
+                  </Combobox.Options>
+                </div>
+              </Combobox>
             </div>
 
             <div className="flex gap-4 mb-5">
@@ -110,6 +160,34 @@ export default function Home() {
                 />
               </div>
             </div>
+            {tags.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by tag (optional)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag: any) => (
+                    <button
+                      key={tag.tag_id}
+                      type="button"
+                      onClick={() => setSelectedTagIds(prev =>
+                        prev.includes(tag.tag_id)
+                          ? prev.filter(id => id !== tag.tag_id)
+                          : [...prev, tag.tag_id]
+                      )}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        selectedTagIds.includes(tag.tag_id)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      {tag.name.replace(/_/g, ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             <button
               onClick={handleSearch}
@@ -210,6 +288,15 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* NEW: Price Tier Indicator */}
+                      {item.price_tier && (
+                        <div className="bg-green-50 text-green-700 text-sm font-bold px-3 py-1 rounded-full tracking-widest">
+                          {'$'.repeat(item.price_tier)}
+                          <span className="text-green-700/30">{'$'.repeat(4 - item.price_tier)}</span>
+                        </div>
+                      )}
+
+                      {/* Existing User Rating */}
                       {item.user_rating && (
                         <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1 rounded-full">
                           ★ {item.user_rating}/10
@@ -226,9 +313,17 @@ export default function Home() {
                   )}
 
                   <div className="flex gap-2 mt-3 flex-wrap">
+                    {/* NEW: Time of Day Pill */}
+                    {item.time_of_day && (
+                      <span className="text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium border border-purple-100 shadow-sm">
+                        {item.time_of_day === 'Morning' ? '🌅' : 
+                         item.time_of_day === 'Afternoon' ? '☀️' : 
+                         item.time_of_day === 'Evening' ? '🌆' : '🌙'} {item.time_of_day}
+                      </span>
+                    )}
                     {item.time_to_exit_mins && (
                       <span className="text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full">
-                        🚶 Exit: {item.time_to_exit_mins} mins
+                      🚶 Exit: {item.time_to_exit_mins} mins
                       </span>
                     )}
                     {item.arrival_terminal && (
@@ -241,6 +336,11 @@ export default function Home() {
                         Departs T{item.departure_terminal}
                       </span>
                     )}
+                    {item.itinerary_tags && item.itinerary_tags.map((t: any) => (
+                      <span key={t.tag_id} className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">
+                        {t.tags.name.replace(/_/g, ' ')}
+                      </span>
+                    ))}
                   </div>
                 </div>
               ))}

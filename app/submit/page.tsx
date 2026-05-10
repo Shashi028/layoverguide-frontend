@@ -24,6 +24,8 @@ export default function SubmitPage() {
   const [userRating, setUserRating] = useState('')
   const [notes, setNotes] = useState('')
   const [exitTransportMode, setExitTransportMode] = useState('')
+  const [priceTier, setPriceTier] = useState<number>(2) 
+  const [timeOfDay, setTimeOfDay] = useState<string>('') // NEW: Time of day state
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,6 +63,7 @@ export default function SubmitPage() {
     if (totalLayoverMins <= 0) { setError('Layover duration must be greater than 0.'); return }
     if (timeToExit && Number(timeToExit) >= totalLayoverMins) { setError('Time to exit cannot exceed total layover duration.'); return }
     if (userRating && (Number(userRating) < 1 || Number(userRating) > 10)) { setError('Rating must be between 1 and 10.'); return }
+    if (!timeOfDay) { setError('Please select the primary time of day for this layover.'); return } // NEW: Validation
 
     setLoading(true)
     const token = session?.access_token
@@ -68,7 +71,9 @@ export default function SubmitPage() {
     const body: any = {
       airport_id: airportId,
       layover_duration_mins: totalLayoverMins,
-      tag_ids: selectedTagIds
+      tag_ids: selectedTagIds,
+      price_tier: priceTier,
+      time_of_day: timeOfDay // NEW: Payload addition
     }
     if (timeToExit) body.time_to_exit_mins = Number(timeToExit)
     if (arrivalTerminal) body.arrival_terminal = arrivalTerminal
@@ -117,6 +122,8 @@ export default function SubmitPage() {
               setUserRating('')
               setSelectedTagIds([])
               setExitTransportMode('')
+              setPriceTier(2)
+              setTimeOfDay('') // NEW: Reset state
             }}
             className="border border-gray-300 text-gray-600 px-6 py-2 rounded-full hover:bg-gray-50"
           >
@@ -257,6 +264,64 @@ export default function SubmitPage() {
               placeholder="What did you do? Any tips for other travellers?"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
+          </div>
+
+          {/* NEW: Time of Day Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              What was the main time of day for this layover? <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[
+                { value: 'Morning', icon: '🌅' },
+                { value: 'Afternoon', icon: '☀️' },
+                { value: 'Evening', icon: '🌆' },
+                { value: 'Overnight', icon: '🌙' }
+              ].map((time) => (
+                <button
+                  key={time.value}
+                  type="button"
+                  onClick={() => setTimeOfDay(time.value)}
+                  className={`flex flex-col items-center justify-center py-3 rounded-lg transition-all border ${
+                    timeOfDay === time.value
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-500'
+                  }`}
+                >
+                  <span className="text-xl mb-1">{time.icon}</span>
+                  <span className="font-medium text-sm">{time.value}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Price Tier Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              How expensive was this layover?
+            </label>
+            <div className="flex gap-2">
+              {[
+                { value: 1, label: '$', desc: 'Budget' },
+                { value: 2, label: '$$', desc: 'Average' },
+                { value: 3, label: '$$$', desc: 'Pricey' },
+                { value: 4, label: '$$$$', desc: 'Luxury' }
+              ].map((tier) => (
+                <button
+                  key={tier.value}
+                  type="button"
+                  onClick={() => setPriceTier(tier.value)}
+                  className={`flex flex-col items-center justify-center flex-1 py-2.5 rounded-lg transition-all border ${
+                    priceTier === tier.value
+                      ? 'bg-green-50 border-green-500 text-green-700 shadow-sm'
+                      : 'bg-white border-gray-200 text-gray-400 hover:border-green-300 hover:text-green-500'
+                  }`}
+                >
+                  <span className="font-bold text-base">{tier.label}</span>
+                  <span className="text-[10px] uppercase tracking-wider opacity-70">{tier.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
